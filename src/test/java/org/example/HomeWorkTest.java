@@ -10,7 +10,7 @@ class HomeWorkTest {
 
     @Test
     void check() {
-        assertEquals(1.1, 1.101, 0.0001);
+        assertEquals(6.0, homeWork.calculate("( 8 + 2 * 5 ) / ( 1 + 3 * 2 - 4 )"));
     }
 
 }

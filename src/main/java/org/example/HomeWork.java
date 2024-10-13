@@ -1,24 +1,19 @@
 package org.example;
 
 import java.util.*;
-import java.util.function.BiFunction;
 
 public class HomeWork {
 
-    static Map<Character, Integer> OPERATORS_WITH_PRIORITIES = Map.of(
-            '+', 1,
-            '-', 1,
-            '*', 2,
-            '/', 2,
-            '^', 3
-    );
+    static Map<String, OperatorInfo> OPERATORS = Map.of(
+            "+", new OperatorInfo(1, Double::sum),
+            "-", new OperatorInfo(1, (a, b) -> b - a),
+            "*", new OperatorInfo(2, (a, b) -> a * b),
+            "/", new OperatorInfo(2, (a, b) -> b / a),
+            "pow", new OperatorInfo(3, (a, b) -> Math.pow(b, a)),
+            "sqr", new OperatorInfo(3, (a, b) -> a * a, false),
+            "sin", new OperatorInfo(3, (a, b) -> Math.sin(a), false),
+            "cos", new OperatorInfo(3, (a, b) -> Math.cos(a), false)
 
-    static Map<Character, BiFunction<Double, Double, Double>> OPERATORS_WITH_FUNCTIONS = Map.of(
-            '+', Double::sum,
-            '-', (a, b) -> b - a,
-            '*', (a, b) -> a * b,
-            '/', (a, b) -> b / a,
-            '^', Math::pow
     );
 
     /**
@@ -41,12 +36,13 @@ public class HomeWork {
             if(cur.chars().allMatch(Character::isDigit)) {
                 stack.push(cur);
             } else {
+                OperatorInfo operatorInfo = OPERATORS.get(cur);
                 stack.push(
-                        OPERATORS_WITH_FUNCTIONS
-                                .get(cur.charAt(0))
+                        operatorInfo
+                                .getFunction()
                                 .apply(
                                         Double.valueOf(stack.pop()),
-                                        Double.valueOf(stack.pop())
+                                        Double.valueOf(operatorInfo.isBi() ? stack.pop() : "0")
                                 )
                                 .toString()
                 );
@@ -59,42 +55,38 @@ public class HomeWork {
     static String translate(String inputString) {
         String[] input = inputString.split(" ");
         List<String> output = new ArrayList<>();
-        Deque<Character> stack = new LinkedList<>();
+        Deque<String> stack = new LinkedList<>();
         for (String cur : input) {
             //Если токен — число, то добавить его в очередь вывода.
             if (cur.chars().allMatch(Character::isDigit)) {
                 output.add(cur);
             }
 
-            if(cur.length() > 1){
-                continue;
-            }
-            char c = cur.charAt(0);
             //Если токен — оператор op1, то:
-            if (OPERATORS_WITH_PRIORITIES.containsKey(c)) {
+            if (OPERATORS.containsKey(cur)) {
                 //Пока присутствует на вершине стека токен оператор op2, чей приоритет выше или равен приоритету op1,
                 // и при равенстве приоритетов op1 является левоассоциативным:
                 while (
                         !stack.isEmpty()
-                                && stack.peek() != '('
-                                && OPERATORS_WITH_PRIORITIES.get(stack.peek()) >= OPERATORS_WITH_PRIORITIES.get(c)
+                                && !stack.peek().equals("(")
+                                && OPERATORS.get(stack.peek()).getPriority() >= OPERATORS.get(cur).getPriority()
                 ) {
                     //Переложить op2 из стека в выходную очередь;
-                    output.add(stack.pop().toString());
+                    output.add(stack.pop());
                 }
                 //Положить op1 в стек.
-                stack.push(c);
+                stack.push(cur);
             }
             //Если токен — открывающая скобка, то положить его в стек.
-            if (c == '(') {
-                stack.push(c);
+            if (cur.equals("(")) {
+                stack.push(cur);
             }
             //Если токен — закрывающая скобка:
-            if (c == ')') {
+            if (cur.equals(")")) {
                 //Пока токен на вершине стека не открывающая скобка
-                while (!stack.isEmpty() && stack.peek() != '(') {
+                while (!stack.isEmpty() && !stack.peek().equals("(")) {
                     //Переложить оператор из стека в выходную очередь.
-                    output.add(stack.pop().toString());
+                    output.add(stack.pop());
                 }
                 //Если стек закончился до того, как был встречен токен открывающая скобка, то в выражении пропущена скобка.
                 if (stack.isEmpty()) {
@@ -103,16 +95,23 @@ public class HomeWork {
                 //Выкинуть открывающую скобку из стека, но не добавлять в очередь вывода.
                 stack.pop();
             }
+
+            // если токен - функция
+            if(Set.of("pow", "sqr", "sin", "cos").stream().anyMatch(cur::contains)) {
+                String[] parsedFunc = cur.split("[(,)]");
+                output.addAll(Arrays.asList(parsedFunc).subList(1, parsedFunc.length));
+                stack.push(parsedFunc[0]);
+            }
         }
         //Если больше не осталось токенов на входе:
         //Пока есть токены операторы в стеке:
         while (!stack.isEmpty()) {
             //Если токен оператор на вершине стека — открывающая скобка, то в выражении пропущена скобка.
-            if (stack.peek() == '(') {
+            if (stack.peek().equals("(")) {
                 throw new IllegalArgumentException("Missing ')' in expression");
             }
             //Переложить оператор из стека в выходную очередь.
-            output.add(stack.pop().toString());
+            output.add(stack.pop());
         }
 
 
